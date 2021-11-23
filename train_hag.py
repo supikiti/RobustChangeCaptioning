@@ -141,10 +141,6 @@ def main(args):
         for i, batch in enumerate(train_loader):
             iter_start_time = time.time()
 
-            #d_feats, nsc_feats, sc_feats, \
-            #labels, no_chg_labels, masks, no_chg_masks, aux_labels_pos, aux_labels_neg, \
-            #d_img_paths, nsc_img_paths, sc_img_paths = batch
-        
             img_1_feature, img_2_feature, labels, masks, _, _ = batch
             batch_size = img_1_feature.size(0)
             masks = masks.float()
@@ -157,40 +153,15 @@ def main(args):
 
             optimizer.zero_grad()
 
-            #labels = labels.squeeze(1)
-            #no_chg_labels = no_chg_labels.squeeze(1)
-            #masks = masks.squeeze(1).float()
-            #no_chg_masks = no_chg_masks.squeeze(1).float()
-
-            #d_feats, nsc_feats, sc_feats = d_feats.to(device), nsc_feats.to(device), sc_feats.to(device)
-            #d_feats, nsc_feats, sc_feats = \
-                #spatial_info(d_feats), spatial_info(nsc_feats), spatial_info(sc_feats)
-            
-            #labels, masks = labels.to(device), masks.to(device)
-            #no_chg_labels, no_chg_masks = no_chg_labels.to(device), no_chg_masks.to(device)
-            #aux_labels_pos, aux_labels_neg = aux_labels_pos.to(device), aux_labels_neg.to(device)
-
             chg_pos_logits, chg_pos_att_bef, chg_pos_att_aft, \
             chg_pos_feat_bef, chg_pos_feat_aft, chg_pos_feat_diff = change_detector(img_1_feature, img_2_feature)
-
-            #chg_neg_logits, chg_neg_att_bef, chg_neg_att_aft, \
-            #chg_neg_feat_bef, chg_neg_feat_aft, chg_neg_feat_diff = change_detector(d_feats, nsc_feats)
 
             speaker_output_pos = speaker._forward(chg_pos_feat_bef,
                                                 chg_pos_feat_aft,
                                                 chg_pos_feat_diff,
                                                 labels)
 
-            #print(speaker_output_pos.shape) # torch.Size([128, 61, 2126])
-
             dynamic_atts = speaker.get_module_weights() # (batch, seq_len, 3)
-
-            #speaker_output_neg = speaker._forward(chg_neg_feat_bef,
-                                                #chg_neg_feat_aft,
-                                                #chg_neg_feat_diff,
-                                                #no_chg_labels)
-
-            #print(speaker_output_pos.shape, labels.shape, masks.shape)
 
             speaker_loss = 1.0 * lang_criterion(speaker_output_pos[:, :-1, :], labels[:, 1:], masks[:, 1:])
                         #0.5 * lang_criterion(speaker_output_neg, no_chg_labels[:, 1:], no_chg_masks[:, 1:])
@@ -211,8 +182,6 @@ def main(args):
             stats['total_loss'] = total_loss_val
             stats['avg_total_loss'] = total_loss_avg.avg
 
-
-            #results, sample_logprobs = model(d_feats, q_feats, labels, cfg=cfg, mode='sample')
             total_loss.backward()
             optimizer.step()
 
@@ -259,7 +228,6 @@ def main(args):
                         os.makedirs(sent_save_dir)
 
                     result_sents_pos = {}
-                    #result_sents_neg = {}
                     for val_i, val_batch in enumerate(val_loader):
 
                         img_1_feature, img_2_feature, labels, masks, \
@@ -304,35 +272,20 @@ def main(args):
                                             pos_dynamic_atts[val_j], gen_sent_length, \
                                             gen_sents_pos[val_j], gts[val_j],
                                             sample_save_dir, 'sc_')
-                                #visualize_att(d_img_paths[val_j], nsc_img_paths[val_j],
-                                            #chg_neg_att_bef[val_j], dummy[val_j], chg_neg_att_aft[val_j],
-                                            #neg_dynamic_atts[val_j], gen_sents_neg[val_j], gts_neg,
-                                            #-1, -1, sample_save_dir, 'nsc_')
 
                             sent_pos = gen_sents_pos[val_j]
-                            #sent_neg = gen_sents_neg[val_j]
                             image_id = get_img_id(img_1_path[val_j])
                             result_sents_pos[image_id] = sent_pos
-                            #result_sents_neg[image_id + '_n'] = sent_neg
                             message = '%s results:\n' % image_id
                             message += '\t' + sent_pos + '\n'
                             message += '----------<GROUND TRUTHS>----------\n'
                             message += gts[val_j] + '\n'
                             message += '===================================\n'
-                            #message += '%s results:\n' % nsc_img_paths[val_j]
-                            #message += '\t' + sent_neg + '\n'
-                            #message += '----------<GROUND TRUTHS>----------\n'
-                            #for gt in gts_neg:
-                                #message += gt + '\n'
-                            #message += '===================================\n'
                             print(message)
-
 
                     test_iter_end_time = time.time() - test_iter_start_time
                     result_save_path_pos = os.path.join(sent_save_dir, 'sc_results.json')
-                    #result_save_path_neg = os.path.join(sent_save_dir, 'nsc_results.json')
                     coco_gen_format_save(result_sents_pos, result_save_path_pos)
-                    #coco_gen_format_save(result_sents_neg, result_save_path_neg)
 
                 set_mode('train', [change_detector, speaker])
 
