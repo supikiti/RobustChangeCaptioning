@@ -4,6 +4,8 @@ import torch.optim as optim
 import torch.nn.functional as F
 import json
 
+import time
+
 
 ################################################################################
 # Checkpoint related util functions
@@ -128,7 +130,7 @@ def decode_sequence(ix_to_word, seq):
             ix = seq[i,j]
             if ix > 0 :
                 if j >= 1:
-                    txt = txt + ' '
+                    txt += ""
                 txt = txt + ix_to_word[ix.item()]
             else:
                 break
@@ -209,6 +211,9 @@ class LanguageModelCriterion(nn.Module):
         # truncate to the same size
         target = target[:, :input.size(1)]
         mask =  mask[:, :input.size(1)]
+
+        #target = target[:, :input.size(1)+1]
+        #mask =  mask[:, :input.size(1)+1]
 
         output = -input.gather(2, target.unsqueeze(2)).squeeze(2) * mask
         output = torch.sum(output) / torch.sum(mask)

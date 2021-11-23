@@ -1,4 +1,5 @@
 import matplotlib
+#import japanize_matplotlib as matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -28,7 +29,10 @@ def transparent_cmap(cmap, N=255):
 
 def visualize_att(d_img_path, q_img_path,
                   loc_att_bef, rest_att, loc_att_aft, mod_att,
-                  gen_sent, gt_sents, pred, gt_chg, save_dir, prefix):
+                  gen_sent_length, pred, gt_chg, save_dir, prefix):
+    
+    matplotlib.font_manager._rebuild()
+
     img_basename = d_img_path.split('/')[-1]
     d_img = imread(d_img_path)
     q_img = imread(q_img_path)
@@ -82,32 +86,26 @@ def visualize_att(d_img_path, q_img_path,
     ax6.imshow(q_img)
     ax6.contourf(x, y, 255 * loc_att_aft.T, 15, cmap=loc_aft_cmap)
 
+    message = "Pred: {} \n GT: {}\n".format(pred, gt_chg)
+    fig.suptitle(message, fontsize=40)
 
-    message = 'Pred: %d / GT: %d\n' % (pred, gt_chg)
-    message += gen_sent + '\n'
-    message += '----------<GROUND TRUTHS>----------\n'
-    for gt in gt_sents:
-        message += gt + '\n'
-    message += '===================================\n'
-    fig.suptitle(message, fontsize=12)
-
-    gen_sent_length = len(gen_sent.split(' '))
+    #gen_sent_length = len(gen_sent.split(' '))
     mod_att = np.transpose(mod_att)[:, :gen_sent_length] # (4, seq_len)
     gs = gridspec.GridSpec(nrows=3, ncols=3)
     ax7.remove()
     ax8.remove()
     ax9.remove()
-    axbig = fig.add_subplot(gs[2, :])
+    #axbig = fig.add_subplot(gs[2, :])
 
-    axbig.imshow(mod_att, interpolation='nearest', cmap='Oranges')
-    axbig.set_yticks(range(3))
-    axbig.set_yticklabels(['loc before', 'diff', 'loc after'])
-    axbig.set_xticks(range(gen_sent_length))
-    axbig.set_xticklabels(gen_sent.split(' '), rotation=45)
+    #axbig.imshow(mod_att, interpolation='nearest', cmap='Oranges')
+    #axbig.set_yticks(range(3))
+    #axbig.set_yticklabels(['loc before', 'diff', 'loc after'])
+    #axbig.set_xticks(range(gen_sent_length))
+    #axbig.set_xticklabels(gen_sent.split(' '), rotation=45)
 
-    axbig.grid()
-    axbig.set_ylabel('Module Weights')
-    axbig.set_xlabel('Generated Sentence')
+    #axbig.grid()
+    #axbig.set_ylabel('Module Weights')
+    #axbig.set_xlabel('Generated Sentence')
 
     plt.show()
     fig.savefig(os.path.join(save_dir, prefix + img_basename), bbox_inches='tight')

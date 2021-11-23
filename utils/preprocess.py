@@ -1,3 +1,6 @@
+from janome.tokenizer import Tokenizer
+#import MeCab
+
 """
 Utilities for preprocessing sequence data.
 
@@ -69,25 +72,36 @@ def build_vocab(sequences, min_token_count=1, delim=' ',
 
 def tokenize_jp(s, delim=' ',
       add_start_token=True, add_end_token=True,
-      punct_to_keep=None, punct_to_remove=None):
+      punct_to_keep=None, punct_to_remove=None, tokenizer=None):
   """
   Tokenize a sequence, converting a string s into a list of (string) tokens by
   splitting on the specified delimiter. Optionally keep or remove certain
   punctuation marks and add start and end tokens.
   """
-  if punct_to_keep is not None:
-    for p in punct_to_keep:
-      s = s.replace(p, '%s%s' % (delim, p))
+
+  #mecab = tokenizer.parse(s)
+  
+  #if punct_to_keep is not None:
+    #for p in punct_to_keep:
+      #s = s.replace(p, '%s%s' % (delim, p))
 
   if punct_to_remove is not None:
     for p in punct_to_remove:
       s = s.replace(p, '')
 
-  tokens = s.split(delim)
+  words = tokenizer.tokenize(s, wakati = True)
+
+  tokens = []
+  for i in words:
+      tokens.append(i)
+
+ # tokens = s.split(delim)
+
   if add_start_token:
     tokens.insert(0, '<START>')
   if add_end_token:
     tokens.append('<END>')
+
   return tokens
 
 
@@ -100,9 +114,12 @@ def build_vocab_jp(sequences, min_token_count=1, delim=' ',
     'punct_to_remove': punct_to_remove,
   }
 
-  for seq in sequences:
+  #t = MeCab.Tagger("-Owakati")
+  t = Tokenizer()
+
+  for *unused, seq in sequences:
     seq_tokens = tokenize_jp(seq, **tokenize_kwargs,
-                    add_start_token=False, add_end_token=False)
+                    add_start_token=False, add_end_token=False, tokenizer=t)
 
     for token in seq_tokens:
       if token not in token_to_count:
@@ -121,6 +138,19 @@ def build_vocab_jp(sequences, min_token_count=1, delim=' ',
 
 def encode(seq_tokens, token_to_idx, allow_unk=False):
   seq_idx = []
+  for token in seq_tokens:
+    if token not in token_to_idx:
+      if allow_unk:
+        token = '<UNK>'
+      else:
+        raise KeyError('Token "%s" not in vocab' % token)
+    seq_idx.append(token_to_idx[token])
+  return seq_idx
+
+
+def encode_jp(seq_tokens, token_to_idx, allow_unk=False):
+  seq_idx = []
+
   for token in seq_tokens:
     if token not in token_to_idx:
       if allow_unk:

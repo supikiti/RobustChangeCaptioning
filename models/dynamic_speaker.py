@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence, pad_packed_sequence
+from memory_profiler import profile
 
 from .CaptionModel import CaptionModel
 
@@ -169,8 +170,10 @@ class DynamicSpeaker(CaptionModel):
                                    torch.multinomial(prob_prev, 1).view(-1).index_select(0, sample_ind))
             else:
                 it = seq[:, i].clone()
+
             # break if all the sequences end
-            if i >= 1 and seq[:, i].sum() == 0:
+            #if i >= 1 and (seq[:, i].sum()).item() == 0:
+            if i >= 1 and (seq[:, i].sum()).item() == 0:
                 break
 
             output, state = self.get_logprobs_state(it,
@@ -241,7 +244,7 @@ class DynamicSpeaker(CaptionModel):
         # return the samples and their log likelihoods
         return seq.transpose(0, 1), seq_logprobs.transpose(0, 1)
 
-
+    
     def _sample(self,
                 feat_bef, feat_aft,
                 feat_diff, seq, cfg={}, sample_max=0):

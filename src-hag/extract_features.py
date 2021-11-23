@@ -1,5 +1,5 @@
 import argparse, os, json
-from path import Path
+from pathlib import Path
 import numpy as np
 from scipy.misc import imread, imresize
 
@@ -81,8 +81,6 @@ def main(args):
 
   if args.max_images is not None:
     input_paths = input_paths[:args.max_images]
-  print(input_paths[0])
-  print(input_paths[-1])
 
   if not os.path.exists(args.output_dir):
     os.makedirs(args.output_dir)
@@ -94,7 +92,7 @@ def main(args):
   i0 = 0
   cur_batch = []
   cur_path_batch = []
-  for i, (path, idx) in enumerate(input_paths):
+  for i, path in enumerate(input_paths):
     img = imread(path, mode='RGB')
     img = imresize(img, img_size, interp='bicubic')
     img = img.transpose(2, 0, 1)[None]

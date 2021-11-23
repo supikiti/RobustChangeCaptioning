@@ -1,4 +1,6 @@
-def create_dataset(cfg, split='train'):
+from torch.utils.data import DataLoader
+
+def create_dataset(cfg, split='train', img_feat_base_path=None):
     dataset = None
     data_loader = None
     if cfg.data.dataset == 'rcc_dataset':
@@ -6,6 +8,16 @@ def create_dataset(cfg, split='train'):
 
         dataset = RCCDataset(cfg, split)
         data_loader = RCCDataLoader(
+            dataset,
+            batch_size=dataset.batch_size,
+            shuffle=True if split == 'train' else False,
+            num_workers=cfg.data.num_workers)
+
+    elif cfg.data.dataset == "hag_dataset":
+        from datasets.hag_dataset import HAGDataset
+
+        dataset = HAGDataset(cfg, split, img_feat_base_path)
+        data_loader = DataLoader(
             dataset,
             batch_size=dataset.batch_size,
             shuffle=True if split == 'train' else False,
