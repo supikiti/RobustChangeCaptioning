@@ -22,6 +22,24 @@ def create_dataset(cfg, split='train', img_feat_base_path=None):
             batch_size=dataset.batch_size,
             shuffle=True if split == 'train' else False,
             num_workers=cfg.data.num_workers)
+    elif cfg.data.dataset == "hag_dataset_with_scene":
+        from datasets.hag_dataset_with_scene import HAGDataset_with_rcnn
+
+        dataset = HAGDataset_with_rcnn(cfg, split, img_feat_base_path)
+        data_loader = DataLoader(
+            dataset,
+            batch_size=dataset.batch_size,
+            shuffle=True if split == 'train' else False,
+            num_workers=cfg.data.num_workers)
+    elif cfg.data.dataset == "hag_dataset_with_rcnn":
+        from datasets.hag_dataset_with_rcnn import HAGDataset_with_rcnn
+
+        dataset = HAGDataset_with_rcnn(cfg, split, img_feat_base_path)
+        data_loader = DataLoader(
+            dataset,
+            batch_size=dataset.batch_size,
+            shuffle=True if split == 'train' else False,
+            num_workers=cfg.data.num_workers)
     else:
         raise Exception('Unknown dataset: %s' % cfg.data.dataset)
     
