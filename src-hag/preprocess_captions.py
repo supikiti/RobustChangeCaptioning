@@ -16,15 +16,21 @@ from collections import defaultdict
 from utils.preprocess import tokenize, encode, build_vocab
 from utils.preprocess import tokenize_jp, encode_jp, build_vocab_jp
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--img_cap_pair_file_path", type = str, \
-    default = "/mnt/home/taiki-n/riken/data/home-action-genome/true_res/true_dataset.csv")
-parser.add_argument('--input_vocab_json', default=None)
-parser.add_argument('--output_vocab_json', default='hag_data/vocab.json', help='output vocab file')
-parser.add_argument('--output_pickle_dir', default="hag_data", help='output h5 file')
 
-parser.add_argument('--word_count_threshold', default=1, type=int)
-parser.add_argument('--allow_unk', default=0, type=int)
+def parser():
+    # Load config
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--img_cap_pair_file_path", type = str, \
+        default = "/mnt/home/taiki-n/riken/data/home-action-genome/true_res/new_true_dataset_with_scene.csv")
+    parser.add_argument('--input_vocab_json', default=None)
+    parser.add_argument('--output_vocab_json', default='hag_data_with_scene/vocab.json', help='output vocab file')
+    parser.add_argument('--output_pickle_dir', default="hag_data_with_scene", help='output h5 file')
+    parser.add_argument('--word_count_threshold', default=1, type=int)
+    parser.add_argument('--allow_unk', default=0, type=int)
+
+    args = parser.parse_args()
+    return args
 
 
 def open_img_cap_pair_csv(path):
@@ -71,28 +77,12 @@ def add_idx(dataset_list):
 
 
 def get_list_and_cap_data_from_path(dataset_path):
-    #path_to_train_txt = "hag_data/train_img_cap_pair.txt"
-    #path_to_dev_txt = "hag_data/dev_img_cap_pair.txt"
-    #path_to_eval_txt = "hag_data/eval_img_cap_pair.txt"
-
-    #train_img_cap_pair = open_img_cap_pair_csv(path_to_train_txt)
-    #dev_img_cap_pair = open_img_cap_pair_csv(path_to_dev_txt)
-    #eval_img_cap_pair = open_img_cap_pair_csv(path_to_eval_txt)
 
     dataset_pair_list = list(open_img_cap_pair_csv(dataset_path))
     train_list, dev_list, eval_list = split_cap_data(dataset_pair_list)
     train_list = list(add_idx(train_list))
     dev_list = list(add_idx(dev_list))
     eval_list = list(add_idx(eval_list))
-
-    #path_to_img_data_dir = "hag_data/output_all_images"
-    #train_list = list(get_idx_to_img_pair_data_path(train_img_cap_pair, path_to_img_data_dir))
-    #dev_list = list(get_idx_to_img_pair_data_path(dev_img_cap_pair, path_to_img_data_dir))
-    #eval_list = list(get_idx_to_img_pair_data_path(eval_img_cap_pair, path_to_img_data_dir))
-
-    #train_idx_cap = list(get_cap_part_from_dict(train_gen))
-    #dev_idx_cap = list(get_cap_part_from_dict(dev_gen))
-    #eval_idx_cap = list(get_cap_part_from_dict(eval_gen))
 
     all_idx_cap = train_list + dev_list + eval_list
 
@@ -142,24 +132,18 @@ def save_data_as_pickle(saved_data, path):
 def load_pickle_data(path):
     with open(path, "rb") as f:
         saved_data = pickle.load(f)
-    
     return saved_data
 
 
 def main(args):
-    #all_img_cap_pair_list = list(open_img_cap_pair_csv(args.img_cap_pair_file_path))
-    #captions = list(get_cap_part(all_img_cap_pair_list))
-    #train_list, dev_list, eval_list = split_cap_data(all_img_cap_pair_list)
-    #train_captions = list(get_cap_part(train_list))
-
-    captions, train_captions, dev_captions, eval_captions = \
+    all_data, train_data, dev_data, eval_data = \
         get_list_and_cap_data_from_path(args.img_cap_pair_file_path)
-    
+
     ## Either create the vocab or load it from disk
     if args.input_vocab_json is None:
         print('Building vocab')
         word_to_idx = build_vocab_jp(
-            captions,
+            all_data,
             min_token_count=args.word_count_threshold,
             punct_to_remove=[",", "，", "、", ".", "。", "．"]
         )
@@ -176,10 +160,10 @@ def main(args):
     # First, figure out max length of captions
     t = Tokenizer()
 
-    all_cap_tokens = list(tokenize_generator(captions, t))
-    train_cap_tokens = list(tokenize_generator(train_captions, t))
-    dev_cap_tokens = list(tokenize_generator(dev_captions, t))
-    eval_cap_tokens = list(tokenize_generator(eval_captions, t))
+    all_cap_tokens = list(tokenize_generator(all_data, t))
+    train_cap_tokens = list(tokenize_generator(train_data, t))
+    dev_cap_tokens = list(tokenize_generator(dev_data, t))
+    eval_cap_tokens = list(tokenize_generator(eval_data, t))
 
     #all_cap_encoded = get_encoded_data(all_cap_tokens, word_to_idx)
     train_encoded = list(get_encoded_data(train_cap_tokens, word_to_idx))
@@ -198,5 +182,5 @@ def main(args):
         
 
 if __name__ == '__main__':
-    args = parser.parse_args()
+    args = parser()
     main(args)
