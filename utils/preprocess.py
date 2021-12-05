@@ -107,6 +107,7 @@ def tokenize_jp(s, delim=' ',
 
 def build_vocab_jp(sequences, min_token_count=1, delim=' ',
                 punct_to_keep=None, punct_to_remove=None):
+
   token_to_count = {}
   tokenize_kwargs = {
     'delim': delim,
@@ -114,10 +115,9 @@ def build_vocab_jp(sequences, min_token_count=1, delim=' ',
     'punct_to_remove': punct_to_remove,
   }
 
-  #t = MeCab.Tagger("-Owakati")
   t = Tokenizer()
 
-  for *unused, seq in sequences:
+  for *_, seq, _ in sequences:
     seq_tokens = tokenize_jp(seq, **tokenize_kwargs,
                     add_start_token=False, add_end_token=False, tokenizer=t)
 
@@ -171,3 +171,35 @@ def decode(seq_idx, idx_to_token, delim=None, stop_at_end=True):
     return tokens
   else:
     return delim.join(tokens)
+
+
+def encode_graph(graph_list, scene_to_idx, allow_unk=False):
+  seq_idx = []
+
+  for graph_i in graph_list:
+    if not graph_i in scene_to_idx:
+      if allow_unk:
+        graph_i = "<UNK>"
+      else:
+        raise KeyError('Scene Graph "%s" not in dict' % flat_graph_i)
+    seq_idx.append(scene_to_idx[graph_i])
+  
+  return seq_idx
+
+
+def tokenize_graph(graph_data,
+      add_start_token=True, 
+      add_end_token=True
+  ):
+
+  graph_token = []
+  for graph_i in graph_data:
+    flat_graph_i = graph_i[0:1] + graph_i[1]
+    graph_token.extend(flat_graph_i)
+
+  if add_start_token:
+    graph_token.insert(0, '<START>')
+  if add_end_token:
+    graph_token.append('<END>')
+
+  return graph_token

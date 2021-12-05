@@ -24,8 +24,8 @@ def parser():
     parser.add_argument("--img_cap_pair_file_path", type = str, \
         default = "/mnt/home/taiki-n/riken/data/home-action-genome/true_res/new_true_dataset_with_scene.csv")
     parser.add_argument('--input_vocab_json', default=None)
-    parser.add_argument('--output_vocab_json', default='hag_data_with_scene/vocab.json', help='output vocab file')
-    parser.add_argument('--output_pickle_dir', default="hag_data_with_scene", help='output h5 file')
+    parser.add_argument('--output_vocab_json', default='hag_data/vocab.json', help='output vocab file')
+    parser.add_argument('--output_pickle_dir', default="hag_data", help='output h5 file')
     parser.add_argument('--word_count_threshold', default=1, type=int)
     parser.add_argument('--allow_unk', default=0, type=int)
 
@@ -66,9 +66,9 @@ def get_idx_to_img_pair_data_path(img_cap_pair, img_data_base_path):
         yield [idx, str(data_1_path), str(data_2_path), data[-1]]
 
 
-def get_cap_part_from_dict(idx_to_img_pair_gen):
-    for *other, cap in idx_to_img_pair_gen:
-        yield [other, data[-1]]
+#def get_cap_part_from_dict(idx_to_img_pair_gen):
+    #for *other, cap in idx_to_img_pair_gen:
+        #yield [other, cap[-1]]
 
 
 def add_idx(dataset_list):
@@ -90,7 +90,7 @@ def get_list_and_cap_data_from_path(dataset_path):
 
 
 def tokenize_generator(captions, tokenizer=None):
-    for *others, cap in captions:
+    for *others, cap, _ in captions:
         cap_tokens = tokenize_jp(cap,
                                 add_start_token=True,
                                 add_end_token=True,
@@ -147,10 +147,10 @@ def main(args):
             min_token_count=args.word_count_threshold,
             punct_to_remove=[",", "，", "、", ".", "。", "．"]
         )
-    else:
-        print('Loading vocab')
-        with open(args.input_vocab_json, 'r') as f:
-            word_to_idx = json.load(f)
+    #else:
+        #print('Loading vocab')
+        #with open(args.input_vocab_json, 'r') as f:
+            #word_to_idx = json.load(f)
 
     if args.output_vocab_json is not None:
         with open(args.output_vocab_json, 'w') as f:

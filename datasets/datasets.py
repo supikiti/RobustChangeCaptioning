@@ -23,9 +23,9 @@ def create_dataset(cfg, split='train', img_feat_base_path=None):
             shuffle=True if split == 'train' else False,
             num_workers=cfg.data.num_workers)
     elif cfg.data.dataset == "hag_dataset_with_scene":
-        from datasets.hag_dataset_with_scene import HAGDataset_with_rcnn
+        from datasets.hag_dataset_with_scene import HAGDataset_with_scene
 
-        dataset = HAGDataset_with_rcnn(cfg, split, img_feat_base_path)
+        dataset = HAGDataset_with_scene(cfg, split, img_feat_base_path)
         data_loader = DataLoader(
             dataset,
             batch_size=dataset.batch_size,

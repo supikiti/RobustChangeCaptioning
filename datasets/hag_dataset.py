@@ -41,7 +41,7 @@ class HAGDataset(Dataset):
 
         self.vocab_size = len(self.idx_to_word)
         print('vocab size is ', self.vocab_size)
-        
+
         self.split = split
 
         split_pickle_path = "hag_data/{}_data.pickle".format(split)
@@ -53,24 +53,12 @@ class HAGDataset(Dataset):
         if split == 'train':
             self.batch_size = cfg.data.train.batch_size
             self.seq_per_img = cfg.data.train.seq_per_img
-            #self.split_idxs = self.splits['train']
-            #self.num_samples = len(self.img_cap_pair)
-            #if cfg.data.train.max_samples is not None:
-                #self.num_samples = min(cfg.data.train.max_samples, self.num_samples)
         elif split == 'dev': 
             self.batch_size = cfg.data.val.batch_size
             self.seq_per_img = cfg.data.val.seq_per_img
-            #self.split_idxs = self.splits['val']
-            #self.num_samples = len(self.img_cap_pair)
-            #if cfg.data.val.max_samples is not None:
-                #self.num_samples = min(cfg.data.val.max_samples, self.num_samples)
         elif split == 'test': 
             self.batch_size = cfg.data.test.batch_size
             self.seq_per_img = cfg.data.test.seq_per_img
-            #self.split_idxs = self.splits['test']
-            #self.num_samples = len(self.img_cap_pair)
-            #if cfg.data.test.max_samples is not None:
-                #self.num_samples = min(max_samples, self.num_samples)
         else:
             raise Exception('Unknown data split %s' % split)
 
@@ -85,9 +73,6 @@ class HAGDataset(Dataset):
         random.seed()
 
         idx, img_1_img_path, img_2_img_path, cap_data = self.split_data[i]
-
-        #img_1_feature = torch.FloatTensor(np.load(img_1_path))
-        #img_2_feature = torch.FloatTensor(np.load(img_2_path))
 
         img_1_base_path = Path(img_1_img_path).name
         img_2_base_path = Path(img_2_img_path).name

@@ -1,4 +1,15 @@
 data
+experiments
+configs
+*.jpg
+*.npy
+*.pt
+*.json
+*.txt
+*.tar.gz
+*.pickle
+*.csv
+*.h5
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

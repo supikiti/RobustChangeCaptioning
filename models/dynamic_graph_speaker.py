@@ -102,14 +102,14 @@ class DynamicCore(nn.Module):
         return self.module_weights
 
 
-class DynamicSpeaker(CaptionModel):
+class DynamicGraphSpeaker(CaptionModel):
     def __init__(self, cfg):
         super().__init__()
-        self.vocab_size = cfg.model.speaker.vocab_size
-        self.word_embed_size = cfg.model.speaker.word_embed_size
-        self.rnn_size = cfg.model.speaker.rnn_size
-        self.drop_prob_lm = cfg.model.speaker.drop_prob_lm
-        self.seq_length = cfg.model.speaker.seq_length
+        self.vocab_size = cfg.model.graph_speaker.vocab_size
+        self.word_embed_size = cfg.model.graph_speaker.word_embed_size
+        self.rnn_size = cfg.model.graph_speaker.rnn_size
+        self.drop_prob_lm = cfg.model.graph_speaker.drop_prob_lm
+        self.seq_length = cfg.model.graph_speaker.seq_length
 
         self.ss_prob = 0.0  # Scheduled sampling probability
 
@@ -121,14 +121,14 @@ class DynamicSpeaker(CaptionModel):
         self.core = DynamicCore(cfg)
         self.rnn_num_layers = self.core.rnn_num_layers
 
-        self.logit_layers = getattr(cfg.model.speaker, 'logit_layers', 1)
+        self.logit_layers = getattr(cfg.model.graph_speaker, 'logit_layers', 1)
         if self.logit_layers == 1:
             self.logit = nn.Linear(self.rnn_size, self.vocab_size)
         else:
             self.logit = [[nn.Linear(self.rnn_size, self.rnn_size),
                            nn.ReLU(),
                            nn.Dropout(0.5)] \
-                          for _ in range(cfg.model.speaker.logit_layers - 1)]
+                          for _ in range(cfg.model.graph_speaker.logit_layers - 1)]
             self.logit = nn.Sequential(*(
                     reduce(lambda x, y: x + y, self.logit) + \
                     [nn.Linear(self.rnn_size, self.vocab_size)]))
@@ -214,7 +214,7 @@ class DynamicSpeaker(CaptionModel):
         # start fresh
         self.module_weights = []
 
-        beam_size = cfg.model.speaker.get('beam_size', 10)
+        beam_size = cfg.model.graph_speaker.get('beam_size', 10)
         batch_size = feat_bef.size(0)
 
         assert beam_size <= self.vocab_size, 'lets assume this for now, otherwise this corner case causes a few headaches down the road. can be dealt with in future if needed'
@@ -252,9 +252,9 @@ class DynamicSpeaker(CaptionModel):
         self.module_weights = []
 
         #sample_max = cfg.model.speaker.get('sample_max', 1)
-        beam_size = cfg.model.speaker.get('beam_size', 1)
-        temperature = cfg.model.speaker.get('temperature', 1.0)
-        decoding_constraint = cfg.model.speaker.get('decoding_contraint', 0)
+        beam_size = cfg.model.graph_speaker.get('beam_size', 1)
+        temperature = cfg.model.graph_speaker.get('temperature', 1.0)
+        decoding_constraint = cfg.model.graph_speaker.get('decoding_contraint', 0)
 
         if beam_size > 1:
             return self._sample_beam(feat_bef, feat_aft,

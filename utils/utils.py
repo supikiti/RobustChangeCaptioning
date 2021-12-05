@@ -128,6 +128,11 @@ def decode_sequence(ix_to_word, seq):
         txt = ''
         for j in range(D):
             ix = seq[i,j]
+
+            # stop generation if token == <END>
+            if ix == 3:
+                break
+
             if ix > 0 :
                 if j >= 1:
                     txt += ""

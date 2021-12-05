@@ -101,16 +101,12 @@ def main(args):
     speaker = DynamicSpeaker(cfg)
     speaker.to(device)
 
-    graph_speaker = DynamicGraphSpeaker(cfg)
-    graph_speaker.to(device)
-
     spatial_info = AddSpatialInfo()
     spatial_info.to(device)
 
     with open(os.path.join(output_dir, 'model_print'), 'w') as f:
         print(change_detector, file=f)
         print(speaker, file=f)
-        print(graph_speaker, file=f)
         print(spatial_info, file=f)
 
     # Data loading part
@@ -123,7 +119,7 @@ def main(args):
     lang_criterion = LanguageModelCriterion().to(device)
     entropy_criterion = EntropyLoss().to(device)
     all_params = list(change_detector.parameters()) +\
-        list(speaker.parameters()) + list(graph_speaker.parameters())
+        list(speaker.parameters())
     optimizer = build_optimizer(all_params, cfg)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer,
@@ -134,16 +130,14 @@ def main(args):
     t = 0
     epoch = 0
 
-    set_mode('train', [change_detector, speaker, graph_speaker])
+    set_mode('train', [change_detector, speaker])
     ss_prob = speaker.ss_prob
-    ss_graph_prob = graph_speaker.ss_prob
 
     while t < cfg.train.max_iter:
         epoch += 1
         print('Starting epoch %d' % epoch)
         lr_scheduler.step()
         speaker_loss_avg = AverageMeter()
-        graph_speaker_loss_avg = AverageMeter()
         total_loss_avg = AverageMeter()
         if epoch > cfg.train.scheduled_sampling_start and cfg.train.scheduled_sampling_start >= 0:
             frac = (epoch - cfg.train.scheduled_sampling_start) // cfg.train.scheduled_sampling_increase_every
@@ -154,29 +148,18 @@ def main(args):
             if ss_prob_prev != ss_prob:
                 print('Updating scheduled sampling rate: %.4f -> %.4f' % (ss_prob_prev, ss_prob))
 
-            frac_graph = (epoch - cfg.train.scheduled_sampling_start) // cfg.train.scheduled_sampling_increase_every
-            ss_graph_prob_prev = ss_graph_prob
-            ss_graph_prob = min(cfg.train.scheduled_sampling_increase_prob * frac,
-                        cfg.train.scheduled_sampling_max_prob)
-            graph_speaker.ss_graph_prob = ss_graph_prob
-            if ss_graph_prob_prev != ss_graph_prob:
-                print('Updating scheduled sampling rate: %.4f -> %.4f' % (ss_graph_prob_prev, ss_graph_prob))
-
         for i, batch in enumerate(train_loader):
             iter_start_time = time.time()
 
             img_1_feature, img_2_feature, cap_labels, \
-                scene_labels, cap_masks, scene_masks, _, _ = batch
+                _, cap_masks, _, _, _ = batch
 
             batch_size = img_1_feature.size(0)
             cap_masks = cap_masks.float()
-            scene_masks = scene_masks.float()
 
             img_1_feature, img_2_feature = img_1_feature.to(device), img_2_feature.to(device)
             cap_labels = cap_labels.to(device)
-            scene_labels = scene_labels.to(device)
             cap_masks = cap_masks.to(device)
-            scene_masks = scene_masks.to(device)
 
             img_1_feature, img_2_feature = spatial_info(img_1_feature), spatial_info(img_2_feature)
 
@@ -190,36 +173,23 @@ def main(args):
                                                 chg_pos_feat_diff,
                                                 cap_labels)
 
-            graph_speaker_output_pos = graph_speaker._forward(chg_pos_feat_bef,
-                                                chg_pos_feat_aft,
-                                                chg_pos_feat_diff,
-                                                scene_labels)
-
             dynamic_atts = speaker.get_module_weights() # (batch, seq_len, 3)
-            graph_dynamic_atts = graph_speaker.get_module_weights() # (batch, seq_len, 3)
 
             speaker_loss = 1.0 * lang_criterion(speaker_output_pos[:, :-1, :], cap_labels[:, 1:], cap_masks[:, 1:])
             speaker_loss_val = speaker_loss.item()
 
-            graph_speaker_loss = 1.0 * lang_criterion(graph_speaker_output_pos[:, :-1, :], scene_labels[:, 1:], scene_masks[:, 1:])
-            graph_speaker_loss_val = graph_speaker_loss.item()
-
             entropy_loss = -args.entropy_weight * entropy_criterion(dynamic_atts[:, :-1, :], cap_masks[:, 1:])
-            graph_entropy_loss = -args.entropy_weight * entropy_criterion(graph_dynamic_atts[:, :-1, :], scene_masks[:, 1:])
             att_sum = (chg_pos_att_bef.sum() + chg_pos_att_aft.sum()) / (2 * batch_size)
-            total_loss = speaker_loss + graph_speaker_loss + 2.5e-03 * att_sum + entropy_loss + graph_entropy_loss
+            total_loss = speaker_loss + 2.5e-03 * att_sum + entropy_loss
             total_loss_val = total_loss.item()
 
             speaker_loss_avg.update(speaker_loss_val, 2 * batch_size)
-            graph_speaker_loss_avg.update(graph_speaker_loss_val, 2 * batch_size)
             total_loss_avg.update(total_loss_val, 2 * batch_size)
 
             stats = {}
             stats['entropy_loss'] = entropy_loss.item()
             stats['speaker_loss'] = speaker_loss_val
-            stats['graph_speaker_loss'] = graph_speaker_loss_val
             stats['avg_speaker_loss'] = speaker_loss_avg.avg
-            stats['avg_graph_speaker_loss'] = graph_speaker_loss_avg.avg
             stats['total_loss'] = total_loss_val
             stats['avg_total_loss'] = total_loss_avg.avg
 
@@ -243,12 +213,10 @@ def main(args):
 
             if t % cfg.train.snapshot_interval == 0:
                 speaker_state = speaker.state_dict()
-                graph_speaker_state = graph_speaker.state_dict()
                 chg_det_state = change_detector.state_dict()
                 checkpoint = {
                     'change_detector_state': chg_det_state,
                     'speaker_state': speaker_state,
-                    'graph_speaker_state': graph_speaker_state,
                     'model_cfg': cfg
                 }
                 save_path = os.path.join(snapshot_dir,
@@ -256,7 +224,7 @@ def main(args):
                 save_checkpoint(checkpoint, save_path)
 
                 print('Running eval at iter %d' % t)
-                set_mode('eval', [change_detector, speaker, graph_speaker])
+                set_mode('eval', [change_detector, speaker])
                 with torch.no_grad():
                     test_iter_start_time = time.time()
 
@@ -275,21 +243,18 @@ def main(args):
 
                     result_sents_pos = {}
                     val_speaker_loss_avg = AverageMeter()
-                    val_graph_speaker_loss_avg = AverageMeter()
                     val_total_loss_avg = AverageMeter()
 
                     for val_i, val_batch in enumerate(val_loader):
 
-                        (img_1_feature, img_2_feature, cap_labels, scene_labels, 
-                            cap_masks, scene_masks, img_1_path, img_2_path) = val_batch
+                        (img_1_feature, img_2_feature, cap_labels, _, 
+                            cap_masks, _, img_1_path, img_2_path) = val_batch
 
                         val_batch_size = img_1_feature.size(0)
                         cap_masks = cap_masks.float()
-                        scene_masks = scene_masks.float()
 
                         img_1_feature, img_2_feature = img_1_feature.to(device), img_2_feature.to(device)
                         cap_labels, cap_masks = cap_labels.to(device), cap_masks.to(device)
-                        scene_labels, scene_masks = scene_labels.to(device), scene_masks.to(device)
 
                         img_1_feature, img_2_feature = spatial_info(img_1_feature), spatial_info(img_2_feature)
 
@@ -306,37 +271,23 @@ def main(args):
                                                                 chg_pos_feat_diff,
                                                                 cap_labels)
 
-                        graph_speaker_output_pos = graph_speaker._forward(chg_pos_feat_bef,
-                                                                chg_pos_feat_aft,
-                                                                chg_pos_feat_diff,
-                                                                scene_labels)
-
-                                                                
                         pos_dynamic_atts = speaker.get_module_weights() # (batch, seq_len, 3)
-                        pos_graph_dynamic_atts = graph_speaker.get_module_weights() # (batch, seq_len, 3)
 
                         val_speaker_loss = 1.0 * lang_criterion(speaker_output_pos[:, :-1, :], cap_labels[:, 1:], cap_masks[:, 1:])
                         val_speaker_loss_val = speaker_loss.item()
 
-                        val_graph_speaker_loss = 1.0 * lang_criterion(graph_speaker_output_pos[:, :-1, :], scene_labels[:, 1:], scene_masks[:, 1:])
-                        val_graph_speaker_loss_val = graph_speaker_loss.item()
-
                         val_entropy_loss = -args.entropy_weight * entropy_criterion(pos_dynamic_atts[:, :-1, :], cap_masks[:, 1:])
-                        val_graph_entropy_loss = -args.entropy_weight * entropy_criterion(pos_graph_dynamic_atts[:, :-1, :], scene_masks[:, 1:])
                         val_att_sum = (chg_pos_att_bef.sum() + chg_pos_att_aft.sum()) / (2 * batch_size)
-                        val_total_loss = val_speaker_loss + val_graph_speaker_loss + 2.5e-03 * val_att_sum + val_entropy_loss + val_graph_entropy_loss
+                        val_total_loss = val_speaker_loss + 2.5e-03 * val_att_sum + val_entropy_loss
                         val_total_loss_val = val_total_loss.item()
 
                         val_speaker_loss_avg.update(val_speaker_loss_val, 2 * batch_size)
-                        val_graph_speaker_loss_avg.update(val_graph_speaker_loss_val, 2 * batch_size)
                         val_total_loss_avg.update(val_total_loss_val, 2 * batch_size)
 
                         stats = {}
                         stats['entropy_loss'] = entropy_loss.item()
                         stats['speaker_loss'] = val_speaker_loss_val
-                        stats['graph_speaker_loss'] = val_graph_speaker_loss_val
                         stats['avg_speaker_loss'] = val_speaker_loss_avg.avg
-                        stats['avg_graph_speaker_loss'] = val_graph_speaker_loss_avg.avg
                         stats['total_loss'] = val_total_loss_val
                         stats['avg_total_loss'] = val_total_loss_avg.avg
 
@@ -347,13 +298,7 @@ def main(args):
                                                                 chg_pos_feat_diff,
                                                                 cap_labels, cfg)
 
-                        graph_speaker_output_pos_for_de, _ = graph_speaker._sample(chg_pos_feat_bef,
-                                                                chg_pos_feat_aft,
-                                                                chg_pos_feat_diff,
-                                                                scene_labels, cfg)
-
                         gen_sents_pos = decode_sequence(idx_to_word, speaker_output_pos_for_de)
-                        gen_graph_sents_pos = decode_sequence(idx_to_scene, graph_speaker_output_pos_for_de)
 
                         chg_pos_att_bef = chg_pos_att_bef.cpu().numpy()
                         chg_pos_att_aft = chg_pos_att_aft.cpu().numpy()
@@ -363,11 +308,7 @@ def main(args):
                         gts = decode_sequence(idx_to_word, cap_labels)
                         gen_sent_length = cap_labels.size(1)
 
-                        graph_gts = decode_sequence(idx_to_scene, scene_labels)
-                        gen_graph_sent_length = scene_labels.size(1)
-
                         pos_dynamic_atts = speaker.get_module_weights().detach().cpu().numpy() # (batch, seq_len, 3)
-                        pos_graph_dynamic_atts = graph_speaker.get_module_weights().detach().cpu().numpy() # (batch, seq_len, 3)
 
                         for val_j in range(speaker_output_pos.size(0)):
                             if args.visualize and val_j % args.visualize_every == 0:
@@ -391,7 +332,7 @@ def main(args):
                     result_save_path_pos = os.path.join(sent_save_dir, 'sc_results.json')
                     coco_gen_format_save(result_sents_pos, result_save_path_pos)
 
-                set_mode('train', [change_detector, speaker, graph_speaker])
+                set_mode('train', [change_detector, speaker])
                 writer.export_scalars_to_json(f"{exp_dir}/all_scalars.json")
 
 
